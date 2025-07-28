@@ -1,15 +1,12 @@
-version: "3.8"
 services:
   db:
     image: postgres:15
-    restart: always
+    container_name: infra-db-1
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: vM7%5kS6Qn%$@EX
-      POSTGRES_DB: postgres
+      POSTGRES_DB: arescore
+      POSTGRES_USER: ares
+      POSTGRES_PASSWORD: arespass
     ports:
       - "5432:5432"
     volumes:
-      - ./data:/var/lib/postgresql/data
-
-
+      - ./db-data:/var/lib/postgresql/data
