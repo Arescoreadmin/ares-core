@@ -2,6 +2,7 @@ services:
   db:
     image: postgres:15
     container_name: infra-db-1
+    restart: always
     environment:
       POSTGRES_DB: arescore
       POSTGRES_USER: ares
@@ -10,3 +11,16 @@ services:
       - "5432:5432"
     volumes:
       - ./db-data:/var/lib/postgresql/data
+
+  self_healing_supervisor:
+    image: python:3.11-slim
+    restart: always
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./self_healing_supervisor.py:/app/self_healing_supervisor.py
+    environment:
+      SUPERVISE_TARGETS: "infra-db-1=http://db:5432/health"
+      CHECK_INTERVAL: 30
+    command: ["sh", "-c", "pip install docker requests && python /app/self_healing_supervisor.py"]
+    depends_on:
+      - db
