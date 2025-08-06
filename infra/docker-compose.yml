@@ -1,26 +1,64 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:15
     container_name: infra-db-1
-    restart: always
     environment:
       POSTGRES_DB: arescore
-      POSTGRES_USER: ares
-      POSTGRES_PASSWORD: arespass
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     ports:
       - "5432:5432"
     volumes:
-      - ./db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - postgres_user
+      - postgres_password
+    networks:
+      - db_net
 
-  self_healing_supervisor:
-    image: python:3.11-slim
-    restart: always
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./self_healing_supervisor.py:/app/self_healing_supervisor.py
+  incident_manager:
+    build: ../incident_manager
+    container_name: incident_manager
     environment:
-      SUPERVISE_TARGETS: "infra-db-1=http://db:5432/health"
-      CHECK_INTERVAL: 30
-    command: ["sh", "-c", "pip install docker requests && python /app/self_healing_supervisor.py"]
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - sentinel_net
+
+  sentinelcore-ai:
+    build: ../sentinelcore-ai
+    container_name: sentinelcore-ai
+    environment:
+      INCIDENT_MANAGER_URL: http://incident_manager:8001
+    ports:
+      - "8000:8000"
     depends_on:
-      - db
+      - incident_manager
+    networks:
+      - sentinel_net
+
+  # Example: Add your log_indexer here when ready
+  # log_indexer:
+  #   build: ../log_indexer
+  #   container_name: log_indexer
+  #   ports:
+  #     - "8002:8002"
+  #   networks:
+  #     - sentinel_net
+
+volumes:
+  db-data:
+    driver: local
+
+secrets:
+  postgres_user:
+    external: true
+  postgres_password:
+    external: true
+
+networks:
+  sentinel_net:
+  db_net:
