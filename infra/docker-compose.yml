@@ -10,3 +10,31 @@ services:
       - "5432:5432"
     volumes:
       - ./db-data:/var/lib/postgresql/data
+    networks:
+      - db_net
+
+  incident_manager:
+    build: ../incident_manager
+    container_name: incident_manager
+    environment:
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - sentinel_net
+
+  sentinelcore-ai:
+    build: ../sentinelcore-ai
+    container_name: sentinelcore-ai
+    environment:
+      INCIDENT_MANAGER_URL: http://incident_manager:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      - incident_manager
+    networks:
+      - sentinel_net
+
+networks:
+  sentinel_net:
+  db_net:
