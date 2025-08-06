@@ -4,9 +4,22 @@ services:
     container_name: infra-db-1
     environment:
       POSTGRES_DB: arescore
-      POSTGRES_USER: ares
-      POSTGRES_PASSWORD: arespass
+      POSTGRES_USER_FILE: /run/secrets/postgres_user
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
     ports:
       - "5432:5432"
     volumes:
-      - ./db-data:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
+    secrets:
+      - postgres_user
+      - postgres_password
+
+volumes:
+  db-data:
+    driver: local  # configure encrypted or managed storage in production
+
+secrets:
+  postgres_user:
+    external: true
+  postgres_password:
+    external: true
