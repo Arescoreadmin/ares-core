@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:15
@@ -13,13 +15,50 @@ services:
     secrets:
       - postgres_user
       - postgres_password
+    networks:
+      - db_net
+
+  incident_manager:
+    build: ../incident_manager
+    container_name: incident_manager
+    environment:
+      PORT: 8001
+    ports:
+      - "8001:8001"
+    networks:
+      - sentinel_net
+
+  sentinelcore-ai:
+    build: ../sentinelcore-ai
+    container_name: sentinelcore-ai
+    environment:
+      INCIDENT_MANAGER_URL: http://incident_manager:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      - incident_manager
+    networks:
+      - sentinel_net
+
+  # Optional: Uncomment and edit for MVP as needed.
+  # log_indexer:
+  #   build: ../log_indexer
+  #   container_name: log_indexer
+  #   ports:
+  #     - "8002:8002"
+  #   networks:
+  #     - sentinel_net
 
 volumes:
   db-data:
-    driver: local  # configure encrypted or managed storage in production
+    driver: local
 
 secrets:
   postgres_user:
     external: true
   postgres_password:
     external: true
+
+networks:
+  sentinel_net:
+  db_net:
