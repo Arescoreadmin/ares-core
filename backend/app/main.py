@@ -1,10 +1,7 @@
 from fastapi import FastAPI, Depends
 from sqlalchemy.orm import Session
-from app import models, schemas, crud
-from app.database import engine, get_db
-
-# Auto-create tables at startup (solo dev convenience)
-models.Base.metadata.create_all(bind=engine)
+from app import schemas, crud
+from app.database import get_db
 
 app = FastAPI(title="AresCore API", version="0.1.0")
 
