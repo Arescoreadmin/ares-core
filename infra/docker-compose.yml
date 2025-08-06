@@ -10,3 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - ./db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      retries: 3

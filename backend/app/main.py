@@ -11,6 +11,10 @@ app = FastAPI(title="AresCore API", version="0.1.0")
 
 # --- ROUTES ---
 
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
 @app.post("/users", response_model=schemas.User)
 def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     """
