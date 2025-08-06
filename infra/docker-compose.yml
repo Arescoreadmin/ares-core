@@ -40,7 +40,7 @@ services:
     networks:
       - sentinel_net
 
-  # Optional: Uncomment and edit for MVP as needed.
+  # Example: Add your log_indexer here when ready
   # log_indexer:
   #   build: ../log_indexer
   #   container_name: log_indexer
