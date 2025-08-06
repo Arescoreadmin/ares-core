@@ -10,3 +10,42 @@ services:
       - "5432:5432"
     volumes:
       - ./db-data:/var/lib/postgresql/data
+    networks:
+      - backend_net
+      - incident_manager_net
+      - log_indexer_net
+
+  backend:
+    build: ../backend
+    container_name: backend
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    networks:
+      - backend_net
+
+  incident_manager:
+    build: ../incident_manager
+    container_name: incident_manager
+    depends_on:
+      - db
+    ports:
+      - "8001:8000"
+    networks:
+      - incident_manager_net
+
+  log_indexer:
+    build: ../log_indexer
+    container_name: log_indexer
+    depends_on:
+      - db
+    ports:
+      - "8002:8000"
+    networks:
+      - log_indexer_net
+
+networks:
+  backend_net:
+  incident_manager_net:
+  log_indexer_net:
