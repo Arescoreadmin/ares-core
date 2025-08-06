@@ -1,3 +1,5 @@
+version: "3.8"
+
 services:
   db:
     image: postgres:15
@@ -11,41 +13,40 @@ services:
     volumes:
       - ./db-data:/var/lib/postgresql/data
     networks:
-      - backend_net
-      - incident_manager_net
-      - log_indexer_net
-
-  backend:
-    build: ../backend
-    container_name: backend
-    depends_on:
-      - db
-    ports:
-      - "8000:8000"
-    networks:
-      - backend_net
+      - db_net
 
   incident_manager:
     build: ../incident_manager
     container_name: incident_manager
-    depends_on:
-      - db
+    environment:
+      PORT: 8001
     ports:
-      - "8001:8000"
+      - "8001:8001"
     networks:
-      - incident_manager_net
+      - sentinel_net
 
-  log_indexer:
-    build: ../log_indexer
-    container_name: log_indexer
-    depends_on:
-      - db
+  sentinelcore-ai:
+    build: ../sentinelcore-ai
+    container_name: sentinelcore-ai
+    environment:
+      INCIDENT_MANAGER_URL: http://incident_manager:8001
     ports:
-      - "8002:8000"
+      - "8000:8000"
+    depends_on:
+      - incident_manager
     networks:
-      - log_indexer_net
+      - sentinel_net
+
+  # Optional: Example of a log_indexer service.
+  # Uncomment and edit as needed for your MVP.
+  # log_indexer:
+  #   build: ../log_indexer
+  #   container_name: log_indexer
+  #   ports:
+  #     - "8002:8002"
+  #   networks:
+  #     - sentinel_net
 
 networks:
-  backend_net:
-  incident_manager_net:
-  log_indexer_net:
+  sentinel_net:
+  db_net:
