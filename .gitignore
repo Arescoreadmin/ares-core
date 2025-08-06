@@ -9,6 +9,7 @@ venv/
 
 # Environment variables
 .env
+**/.env
 
 # VS Code settings
 .vscode/
@@ -46,5 +47,3 @@ alembic/versions/__pycache__/
 *.log
 logs/
 
-# Docker
-db-data/

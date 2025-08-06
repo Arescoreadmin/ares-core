@@ -25,7 +25,7 @@ handler = logging.StreamHandler()
 handler.setFormatter(JsonFormatter())
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
-
+logger.propagate = False
 
 class LogEntry(BaseModel):
     timestamp: datetime
@@ -33,9 +33,12 @@ class LogEntry(BaseModel):
     service: str
     message: str
 
-
 LOGS: List[LogEntry] = []
 
+@app.get("/health")
+def health():
+    """Basic health check endpoint."""
+    return {"status": "ok", "service": "log_indexer", "time": datetime.utcnow().isoformat()}
 
 @app.post("/log", status_code=201)
 def ingest_log(entry: LogEntry):
@@ -43,7 +46,6 @@ def ingest_log(entry: LogEntry):
     LOGS.append(entry)
     logger.info("log received", extra={"source": entry.service})
     return {"status": "ok"}
-
 
 @app.get("/query", response_model=List[LogEntry])
 def query_logs(level: Optional[str] = None, service: Optional[str] = None):
@@ -54,7 +56,6 @@ def query_logs(level: Optional[str] = None, service: Optional[str] = None):
     if service:
         result = [log for log in result if log.service == service]
     return result
-
 
 @app.get("/export")
 def export_logs(format: str = "json"):
@@ -71,4 +72,5 @@ def export_logs(format: str = "json"):
                 log.message,
             ])
         return Response(content=output.getvalue(), media_type="text/csv")
+    # Default JSON export
     return [log.dict() for log in LOGS]
