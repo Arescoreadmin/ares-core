@@ -28,7 +28,7 @@ services:
     container_name: incident_manager
     environment:
       PORT: 8001
-      LOG_INDEXER_URL: http://log_indexer:8000
+      LOG_INDEXER_URL: ${LOG_INDEXER_URL:-http://log_indexer:8000}
     ports:
       - "8001:8001"
     networks:
@@ -43,7 +43,7 @@ services:
     container_name: sentinelcore-ai
     environment:
       INCIDENT_MANAGER_URL: http://incident_manager:8001
-      LOG_INDEXER_URL: http://log_indexer:8000
+      LOG_INDEXER_URL: ${LOG_INDEXER_URL:-http://log_indexer:8000}
     ports:
       - "8000:8000"
     depends_on:

@@ -2,7 +2,7 @@ import os
 import csv
 import requests
 from fpdf import FPDF
-from logging_config import setup_logging
+from .logging_config import setup_logging
 
 LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
 logger = setup_logging("report_exporter")
@@ -15,17 +15,18 @@ def fetch_logs():
     return resp.json()
 
 
-def export_csv(logs, filename):
-    logger.info("export_csv", extra={"filename": filename})
+def generate_csv(logs, filename):
+    """Write logs to a CSV file."""
+    logger.info("generate_csv", extra={"file": str(filename)})
     with open(filename, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["timestamp", "level", "service", "message"])
+        writer = csv.DictWriter(f, fieldnames=["message", "level"])
         writer.writeheader()
         for log in logs:
-            writer.writerow(log)
+            writer.writerow({"message": log.get("message"), "level": log.get("level")})
 
-
-def export_pdf(logs, filename):
-    logger.info("export_pdf", extra={"filename": filename})
+def generate_pdf(logs, filename):
+    """Write logs to a PDF file."""
+    logger.info("generate_pdf", extra={"file": str(filename)})
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
@@ -35,10 +36,32 @@ def export_pdf(logs, filename):
     pdf.output(filename)
 
 
+def sign_file(path, key):
+    """Generate an HMAC-SHA256 signature for a file."""
+    import hmac
+    import hashlib
+    data = path.read_bytes()
+    sig = hmac.new(key, data, hashlib.sha256).hexdigest()
+    sig_path = path.with_suffix(path.suffix + ".sig")
+    sig_path.write_text(sig)
+    logger.info("sign_file", extra={"file": str(path)})
+    return sig_path
+
+
+def upload_to_s3(path, bucket, key, s3_client=None):
+    """Upload a file to S3 with basic object lock settings."""
+    if s3_client is None:
+        import boto3
+        s3_client = boto3.client("s3")
+    with open(path, "rb") as f:
+        s3_client.put_object(Bucket=bucket, Key=key, Body=f.read(), ObjectLockMode="COMPLIANCE")
+    logger.info("upload_to_s3", extra={"bucket": bucket, "key": key})
+
+
 def main():
     logs = fetch_logs()
-    export_csv(logs, "logs.csv")
-    export_pdf(logs, "logs.pdf")
+    generate_csv(logs, "logs.csv")
+    generate_pdf(logs, "logs.pdf")
 
 
 if __name__ == "__main__":
