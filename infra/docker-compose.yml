@@ -58,7 +58,9 @@ services:
       - sentinel_net
 
   report_exporter:
-    build: ../report_exporter
+    build:
+      context: ../report_exporter
+      dockerfile: Dockerfile
     container_name: report_exporter
     environment:
       LOG_INDEXER_URL: http://log_indexer:8000
