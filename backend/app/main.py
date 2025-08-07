@@ -4,6 +4,8 @@ from app import models, schemas, crud
 from app.database import engine, get_db
 from app.logging_config import setup_logging
 
+models.Base.metadata.create_all(bind=engine)
+
 app = FastAPI(title="AresCore API", version="0.1.0")
 logger = setup_logging()
 
