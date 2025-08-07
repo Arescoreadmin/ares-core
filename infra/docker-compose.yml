@@ -28,6 +28,7 @@ services:
     container_name: incident_manager
     environment:
       PORT: 8001
+      LOG_INDEXER_URL: http://log_indexer:8000
     ports:
       - "8001:8001"
     networks:
@@ -38,6 +39,7 @@ services:
     container_name: sentinelcore-ai
     environment:
       INCIDENT_MANAGER_URL: http://incident_manager:8001
+      LOG_INDEXER_URL: http://log_indexer:8000
     ports:
       - "8000:8000"
     depends_on:
@@ -45,14 +47,35 @@ services:
     networks:
       - sentinel_net
 
-  # Example: Add your log_indexer here when ready
-  # log_indexer:
-  #   build: ../log_indexer
-  #   container_name: log_indexer
-  #   ports:
-  #     - "8002:8002"
-  #   networks:
-  #     - sentinel_net
+  log_indexer:
+    build: ../log_indexer
+    container_name: log_indexer
+    environment:
+      LOG_INDEXER_URL: http://log_indexer:8000
+    ports:
+      - "8002:8000"
+    networks:
+      - sentinel_net
+
+  report_exporter:
+    build: ../report_exporter
+    container_name: report_exporter
+    environment:
+      LOG_INDEXER_URL: http://log_indexer:8000
+    ports:
+      - "8003:8000"
+    networks:
+      - sentinel_net
+
+  notification_dispatcher:
+    build: ../notification_dispatcher
+    container_name: notification_dispatcher
+    environment:
+      LOG_INDEXER_URL: http://log_indexer:8000
+    ports:
+      - "8004:8000"
+    networks:
+      - sentinel_net
 
 volumes:
   db-data:
