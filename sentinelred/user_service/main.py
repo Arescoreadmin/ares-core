@@ -1,7 +1,7 @@
-"""Entry point for the user service service."""
+from fastapi import FastAPI
 
-def main() -> None:
-    print("user service service running")
+app = FastAPI()
 
-if __name__ == "__main__":
-    main()
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
