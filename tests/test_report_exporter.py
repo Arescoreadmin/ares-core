@@ -70,10 +70,19 @@ def test_export_endpoint(tmp_path, monkeypatch):
     client = TestClient(app)
     resp = client.get("/export")
     assert resp.status_code == 200
+    data = resp.json()
+    assert data["bundle"] == "audit_bundle_v1.zip"
     assert (tmp_path / "logs_v1.csv").exists()
     assert (tmp_path / "logs_v1.pdf").exists()
+    assert (tmp_path / "audit_bundle_v1.zip").exists()
+    import hashlib, zipfile
     csv_hash = (tmp_path / "logs_v1.csv.sha256").read_text()
     pdf_hash = (tmp_path / "logs_v1.pdf.sha256").read_text()
-    import hashlib
+    bundle_hash = (tmp_path / "audit_bundle_v1.zip.sha256").read_text()
     assert csv_hash == hashlib.sha256((tmp_path / "logs_v1.csv").read_bytes()).hexdigest()
     assert pdf_hash == hashlib.sha256((tmp_path / "logs_v1.pdf").read_bytes()).hexdigest()
+    assert bundle_hash == hashlib.sha256((tmp_path / "audit_bundle_v1.zip").read_bytes()).hexdigest()
+    with zipfile.ZipFile(tmp_path / "audit_bundle_v1.zip") as zf:
+        names = zf.namelist()
+    assert "logs_v1.csv" in names
+    assert "logs_v1.pdf" in names
