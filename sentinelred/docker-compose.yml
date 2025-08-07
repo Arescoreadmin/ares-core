@@ -10,8 +10,6 @@ services:
     build: ./quarantine_engine
   notification_dispatcher:
     build: ./notification_dispatcher
-  self_healing_supervisor:
-    build: ./self_healing_supervisor
 volumes:
   db-data:
     driver: local
