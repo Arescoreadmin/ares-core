@@ -38,9 +38,10 @@ Optional variables such as `SIGNING_KEY` and `EXPORT_BUCKET` also support the
 ## Log Indexer Storage Plan
 
 The `log_indexer` service currently persists audit logs to a local SQLite
-database for simplicity during MVP and development. For production deployments,
-plan a migration to a scalable search backend such as OpenSearch or the ELK
-stack to provide retention and query capabilities suitable for larger volumes.
+database for simplicity during MVP and development. For production deployments
+and demo scenarios that require richer search or dashboards, plan a migration
+to a scalable backend such as OpenSearch or the ELK stack. This evolution will
+provide retention and query capabilities suitable for larger volumes.
 SQLite should not be used in production.
 
 ## Security Notes
