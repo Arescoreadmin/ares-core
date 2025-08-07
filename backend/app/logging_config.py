@@ -19,6 +19,7 @@ def load_env(name: str, required: bool = True) -> str | None:
 
 
 LOG_INDEXER_URL = load_env("LOG_INDEXER_URL", required=False)
+LOG_INDEXER_TOKEN = load_env("LOG_INDEXER_TOKEN", required=False)
 
 _session = requests.Session()
 _adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
@@ -39,7 +40,12 @@ class LogIndexerHandler(logging.Handler):
             "message": record.getMessage(),
         }
         try:
-            _session.post(f"{LOG_INDEXER_URL}/log", json=log_entry, timeout=5)
+            headers = {}
+            if LOG_INDEXER_TOKEN:
+                headers["Authorization"] = f"Bearer {LOG_INDEXER_TOKEN}"
+            _session.post(
+                f"{LOG_INDEXER_URL}/log", json=log_entry, timeout=5, headers=headers
+            )
         except Exception:
             # Avoid crashing on logging errors
             pass

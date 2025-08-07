@@ -72,3 +72,8 @@ def test_export_endpoint(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert (tmp_path / "logs_v1.csv").exists()
     assert (tmp_path / "logs_v1.pdf").exists()
+    csv_hash = (tmp_path / "logs_v1.csv.sha256").read_text()
+    pdf_hash = (tmp_path / "logs_v1.pdf.sha256").read_text()
+    import hashlib
+    assert csv_hash == hashlib.sha256((tmp_path / "logs_v1.csv").read_bytes()).hexdigest()
+    assert pdf_hash == hashlib.sha256((tmp_path / "logs_v1.pdf").read_bytes()).hexdigest()
