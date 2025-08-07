@@ -2,7 +2,6 @@ import os
 import time
 from typing import List, Tuple
 
-import docker
 import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util import Retry
@@ -28,8 +27,6 @@ def main() -> None:
         print('No targets configured for supervision', flush=True)
         return
 
-    client = docker.DockerClient(base_url='unix://var/run/docker.sock')
-
     session = requests.Session()
     adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
     session.mount("http://", adapter)
@@ -45,11 +42,10 @@ def main() -> None:
                 healthy = False
 
             if not healthy:
-                try:
-                    print(f'Restarting container {container_name}', flush=True)
-                    client.containers.get(container_name).restart()
-                except Exception as exc:
-                    print(f'Failed to restart {container_name}: {exc}', flush=True)
+                print(
+                    f"Health check failed for {container_name}; relying on orchestrator to restart",
+                    flush=True,
+                )
         time.sleep(check_interval)
 
 
