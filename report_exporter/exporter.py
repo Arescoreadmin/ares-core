@@ -1,145 +1,124 @@
-"""Utilities for exporting logs as signed reports and uploading them to S3."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Iterable, Optional
+import os
 import csv
-import hmac
-import hashlib
-import json
-import tempfile
+from pathlib import Path
 
-try:
-    import requests
-except Exception:  # pragma: no cover - requests is optional for tests
-    requests = None  # type: ignore
+import requests
+from fpdf import FPDF
+
+from .logging_config import setup_logging
+
+LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
+logger = setup_logging("report_exporter")
 
 
-def fetch_logs(base_url: str, start: str, end: str) -> list[dict]:
-    """Fetch logs from the log_indexer service."""
-    if requests is None:
-        raise RuntimeError("requests library is required for fetch_logs")
-    resp = requests.get(f"{base_url}/logs", params={"start": start, "end": end}, timeout=30)
+def fetch_logs():
+    logger.info("fetch_logs")
+    resp = requests.get(f"{LOG_INDEXER_URL}/export")
     resp.raise_for_status()
-    data = resp.json()
-    if isinstance(data, dict):
-        # some indexers might wrap the result
-        data = data.get("logs", [])
-    return list(data)
+    return resp.json()
 
 
-def generate_csv(logs: Iterable[dict], output_path: Path) -> Path:
-    """Generate a CSV report from log entries."""
-    logs = list(logs)
-    if not logs:
-        headers: list[str] = []
-    else:
-        headers = list(logs[0].keys())
-    with output_path.open("w", newline="") as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=headers)
-        writer.writeheader()
-        for row in logs:
-            writer.writerow(row)
-    return output_path
+def generate_csv(logs, filename: Path | str) -> None:
+    """Serialize *logs* to ``filename`` in CSV format.
 
-
-def generate_pdf(logs: Iterable[dict], output_path: Path) -> Path:
-    """Generate a simple PDF report from log entries.
-
-    Requires the optional ``fpdf2`` package. If the package is not available,
-    ``RuntimeError`` is raised.
+    Each log is a mapping with ``message`` and ``level`` keys.  The writer uses
+    ``\n`` as the line terminator for consistent output across platforms.
     """
-    try:
-        from fpdf import FPDF  # type: ignore
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError("fpdf2 package is required for PDF generation") from exc
+    logger.info("generate_csv", extra={"file": str(filename)})
+    with open(filename, "w", newline="") as f:
+        writer = csv.DictWriter(
+            f, fieldnames=["message", "level"], lineterminator="\n"
+        )
+        writer.writeheader()
+        for log in logs:
+            writer.writerow(
+                {"message": log.get("message"), "level": log.get("level")}
+            )
 
+def generate_pdf(logs, filename):
+    """Write logs to a PDF file."""
+    logger.info("generate_pdf", extra={"file": str(filename)})
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt="Log Report", ln=True, align="C")
-    pdf.ln(10)
-    for entry in logs:
-        line = json.dumps(entry)
-        pdf.multi_cell(0, 10, txt=line)
-    pdf.output(str(output_path))
-    return output_path
+    for log in logs:
+        line = f"{log['timestamp']} {log['level']} {log['service']} {log['message']}"
+        pdf.multi_cell(0, 10, line)
+    pdf.output(filename)
 
 
-def sign_file(file_path: Path, secret_key: bytes, signature_path: Optional[Path] = None) -> Path:
-    """Sign a file using HMAC-SHA256."""
-    with file_path.open("rb") as f:
-        data = f.read()
-    signature = hmac.new(secret_key, data, hashlib.sha256).hexdigest()
-    if signature_path is None:
-        signature_path = file_path.with_suffix(file_path.suffix + ".sig")
-    with signature_path.open("w") as f:
-        f.write(signature)
-    return signature_path
+def sign_file(path: Path | str, key: bytes) -> Path:
+    """Return the path to a detached HMAC signature for ``path``.
+
+    The file's contents are read and signed using SHA-256.  The hexadecimal
+    digest is written to a sibling file with the ``.sig`` suffix.
+    """
+    import hashlib
+    import hmac
+
+    file_path = Path(path)
+    data = file_path.read_bytes()
+    sig = hmac.new(key, data, hashlib.sha256).hexdigest()
+    sig_path = file_path.with_suffix(file_path.suffix + ".sig")
+    sig_path.write_text(sig)
+    logger.info("sign_file", extra={"file": str(file_path)})
+    return sig_path
 
 
 def upload_to_s3(
-    file_path: Path,
+    path: Path | str,
     bucket: str,
-    object_name: str,
+    key: str,
     *,
-    retention_days: int = 1,
-    s3_client: Optional[object] = None,
+    s3_client=None,
 ) -> None:
-    """Upload ``file_path`` to S3 with basic immutability settings.
+    """Upload ``path`` to S3 with basic object-lock protection.
 
-    ``s3_client`` can be provided for testing to avoid requiring boto3.
+    A custom ``s3_client`` can be injected for testing; otherwise a new client
+    is created with ``boto3``.
     """
     if s3_client is None:
-        try:  # pragma: no cover - requires boto3 which is optional in tests
-            import boto3
-        except Exception as exc:  # pragma: no cover
-            raise RuntimeError("boto3 is required for S3 uploads") from exc
+        import boto3
+
         s3_client = boto3.client("s3")
 
-    retain_until = datetime.utcnow() + timedelta(days=retention_days)
-    with file_path.open("rb") as data:
+    with open(path, "rb") as f:
         s3_client.put_object(
-            Bucket=bucket,
-            Key=object_name,
-            Body=data,
-            ObjectLockMode="COMPLIANCE",
-            ObjectLockRetainUntilDate=retain_until,
+            Bucket=bucket, Key=key, Body=f.read(), ObjectLockMode="COMPLIANCE"
         )
+    logger.info("upload_to_s3", extra={"bucket": bucket, "key": key})
 
 
-@dataclass
-class ExportConfig:
-    """Configuration for exporting logs."""
+def export() -> dict[str, str]:
+    """Execute the report export workflow and return generated filenames."""
+    logs = fetch_logs()
 
-    log_indexer_url: str
-    bucket: str
-    secret_key: bytes
+    # Determine next available version number
+    version = 1
+    while Path(f"logs_v{version}.csv").exists():
+        version += 1
+
+    csv_path = Path(f"logs_v{version}.csv")
+    pdf_path = Path(f"logs_v{version}.pdf")
+
+    generate_csv(logs, csv_path)
+    generate_pdf(logs, pdf_path)
+
+    sig_paths = []
+    key = os.getenv("SIGNING_KEY")
+    if key:
+        key_bytes = key.encode()
+        sig_paths.append(sign_file(csv_path, key_bytes))
+        sig_paths.append(sign_file(pdf_path, key_bytes))
+
+    bucket = os.getenv("EXPORT_BUCKET")
+    if bucket:
+        upload_to_s3(csv_path, bucket, csv_path.name)
+        upload_to_s3(pdf_path, bucket, pdf_path.name)
+        for sig in sig_paths:
+            upload_to_s3(sig, bucket, sig.name)
+
+    return {"csv": csv_path.name, "pdf": pdf_path.name}
 
 
-def export_reports(config: ExportConfig, start: str, end: str) -> dict:
-    """High-level helper to fetch logs and export reports."""
-    logs = fetch_logs(config.log_indexer_url, start, end)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir_path = Path(tmpdir)
-        csv_path = generate_csv(logs, tmpdir_path / "report.csv")
-        pdf_path = generate_pdf(logs, tmpdir_path / "report.pdf")
-
-        csv_sig = sign_file(csv_path, config.secret_key)
-        pdf_sig = sign_file(pdf_path, config.secret_key)
-
-        upload_to_s3(csv_path, config.bucket, f"reports/{csv_path.name}")
-        upload_to_s3(csv_sig, config.bucket, f"reports/{csv_sig.name}")
-        upload_to_s3(pdf_path, config.bucket, f"reports/{pdf_path.name}")
-        upload_to_s3(pdf_sig, config.bucket, f"reports/{pdf_sig.name}")
-
-        return {
-            "csv": csv_path,
-            "csv_signature": csv_sig,
-            "pdf": pdf_path,
-            "pdf_signature": pdf_sig,
-        }
