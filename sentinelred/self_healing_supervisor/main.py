@@ -1,7 +1,7 @@
-"""Entry point for the self healing supervisor service."""
+from fastapi import FastAPI
 
-def main() -> None:
-    print("self healing supervisor service running")
+app = FastAPI()
 
-if __name__ == "__main__":
-    main()
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}

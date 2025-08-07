@@ -1,1 +1,2 @@
-# Add Python dependencies for $svc here
+fastapi
+uvicorn
