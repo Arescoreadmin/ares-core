@@ -89,7 +89,8 @@ def upload_to_s3(
     logger.info("upload_to_s3", extra={"bucket": bucket, "key": key})
 
 
-def main():
+def export() -> dict[str, str]:
+    """Execute the report export workflow and return generated filenames."""
     logs = fetch_logs()
 
     # Determine next available version number
@@ -117,6 +118,7 @@ def main():
         for sig in sig_paths:
             upload_to_s3(sig, bucket, sig.name)
 
+    return {"csv": csv_path.name, "pdf": pdf_path.name}
 
-if __name__ == "__main__":
-    main()
+
+

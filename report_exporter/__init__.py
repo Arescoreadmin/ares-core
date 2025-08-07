@@ -6,6 +6,7 @@ from .exporter import (
     generate_pdf,
     sign_file,
     upload_to_s3,
+    export,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "generate_pdf",
     "sign_file",
     "upload_to_s3",
+    "export",
 ]
