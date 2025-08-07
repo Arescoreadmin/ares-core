@@ -78,6 +78,27 @@ services:
       interval: 30s
       retries: 3
 
+  behavior_analytics:
+    build: ../behavior_analytics
+    container_name: behavior_analytics
+    restart: on-failure
+    environment:
+      ORCHESTRATOR_URL_FILE: /run/secrets/orchestrator_url
+      LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
+      LOG_INDEXER_TOKEN_FILE: /run/secrets/log_indexer_token
+    ports:
+      - "8004:8000"
+    networks:
+      - sentinel_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      retries: 3
+    secrets:
+      - orchestrator_url
+      - log_indexer_url
+      - log_indexer_token
+
   report_exporter:
     build:
       context: ../report_exporter
@@ -125,7 +146,7 @@ services:
       - ./self_healing_supervisor.py:/app/self_healing_supervisor.py
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      SUPERVISE_TARGETS: "incident_manager=http://incident_manager:8001/health,sentinelcore-ai=http://sentinelcore-ai:8000/health,log_indexer=http://log_indexer:8000/health,report_exporter=http://report_exporter:8000/health,backend=http://backend:8000/health"
+      SUPERVISE_TARGETS: "incident_manager=http://incident_manager:8001/health,sentinelcore-ai=http://sentinelcore-ai:8000/health,log_indexer=http://log_indexer:8000/health,report_exporter=http://report_exporter:8000/health,backend=http://backend:8000/health,behavior_analytics=http://behavior_analytics:8000/health"
     command: ["python", "/app/self_healing_supervisor.py"]
     depends_on:
       - incident_manager
@@ -151,6 +172,10 @@ secrets:
   log_indexer_url:
     external: true
   incident_manager_url:
+    external: true
+  orchestrator_url:
+    external: true
+  log_indexer_token:
     external: true
 
 networks:
