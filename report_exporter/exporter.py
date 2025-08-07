@@ -111,18 +111,18 @@ def upload_to_s3(
     logger.info("upload_to_s3", extra={"bucket": bucket, "key": key})
     
 
-def create_bundle(files: list[Path | str], version: int) -> Path:
-    """Create a zipped audit bundle containing ``files`` and metadata."""
-    bundle_path = Path(f"audit_bundle_v{version}.zip")
-    timestamp = datetime.utcnow().isoformat()
+def create_bundle(files: list[Path | str]) -> Path:
+    """Create a timestamped audit bundle containing ``files`` and metadata."""
+    ts = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    bundle_path = Path(f"audit_bundle_{ts}.zip")
     with zipfile.ZipFile(bundle_path, "w") as zf:
-        names = []
+        names: list[str] = []
         for f in files:
             f = Path(f)
             if f.exists():
                 zf.write(f, arcname=f.name)
                 names.append(f.name)
-        meta = {"created": timestamp, "files": names}
+        meta = {"created": ts, "files": names}
         zf.writestr("metadata.json", json.dumps(meta))
     logger.info("create_bundle", extra={"file": str(bundle_path)})
     return bundle_path
@@ -153,7 +153,7 @@ def export() -> dict[str, str]:
         sig_paths.append(sign_file(pdf_path, key_bytes))
 
     bundle_files = [csv_path, pdf_path, csv_hash, pdf_hash] + sig_paths
-    bundle_path = create_bundle(bundle_files, version)
+    bundle_path = create_bundle(bundle_files)
     bundle_hash = hash_file(bundle_path)
     if key:
         sig_paths.append(sign_file(bundle_path, key_bytes))
