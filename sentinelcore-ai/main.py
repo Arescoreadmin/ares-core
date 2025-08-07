@@ -13,3 +13,8 @@ async def analyze(payload: dict):
     if response.status_code != 200:
         raise HTTPException(status_code=500, detail="Incident manager error")
     return {"status": "processed"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}

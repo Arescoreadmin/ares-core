@@ -33,6 +33,10 @@ services:
       - "8001:8001"
     networks:
       - sentinel_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8001/health || exit 1"]
+      interval: 30s
+      retries: 3
 
   sentinelcore-ai:
     build: ../sentinelcore-ai
@@ -46,6 +50,10 @@ services:
       - incident_manager
     networks:
       - sentinel_net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 30s
+      retries: 3
 
   log_indexer:
     build: ../log_indexer
