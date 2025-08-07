@@ -30,7 +30,9 @@ services:
     restart: always
     environment:
       PORT: 8001
-      LOG_INDEXER_URL: ${LOG_INDEXER_URL:-http://log_indexer:8000}
+      LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
+    secrets:
+      - log_indexer_url
     ports:
       - "8001:8001"
     networks:
@@ -45,8 +47,8 @@ services:
     container_name: sentinelcore-ai
     restart: always
     environment:
-      INCIDENT_MANAGER_URL: http://incident_manager:8001
-      LOG_INDEXER_URL: ${LOG_INDEXER_URL:-http://log_indexer:8000}
+      INCIDENT_MANAGER_URL_FILE: /run/secrets/incident_manager_url
+      LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
       - "8000:8000"
     depends_on:
@@ -57,13 +59,14 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       retries: 3
+    secrets:
+      - incident_manager_url
+      - log_indexer_url
 
   log_indexer:
     build: ../log_indexer
     container_name: log_indexer
     restart: always
-    environment:
-      LOG_INDEXER_URL: http://log_indexer:8000
     ports:
       - "8002:8000"
     networks:
@@ -80,7 +83,7 @@ services:
     container_name: report_exporter
     restart: always
     environment:
-      LOG_INDEXER_URL: http://log_indexer:8000
+      LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
       - "8003:8000"
     networks:
@@ -89,13 +92,15 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       retries: 3
+    secrets:
+      - log_indexer_url
 
   notification_dispatcher:
     build: ../notification_dispatcher
     container_name: notification_dispatcher
     restart: always
     environment:
-      LOG_INDEXER_URL: http://log_indexer:8000
+      LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
       - "8004:8000"
     networks:
@@ -104,6 +109,8 @@ services:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
       retries: 3
+    secrets:
+      - log_indexer_url
 
   self_healing_supervisor:
     image: python:3.11-slim
@@ -132,6 +139,10 @@ secrets:
   postgres_user:
     external: true
   postgres_password:
+    external: true
+  log_indexer_url:
+    external: true
+  incident_manager_url:
     external: true
 
 networks:

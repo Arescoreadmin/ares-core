@@ -1,7 +1,10 @@
+import os
 import sys
 from pathlib import Path as _Path
 
 sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+os.environ.setdefault("LOG_INDEXER_URL", "http://log-indexer")
 
 from report_exporter.exporter import generate_csv, sign_file, upload_to_s3
 from report_exporter.app import app

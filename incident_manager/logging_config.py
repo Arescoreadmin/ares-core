@@ -1,9 +1,22 @@
 import logging
 from datetime import datetime
 import os
+from pathlib import Path
 import requests
 
-LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
+
+def load_env(name: str, required: bool = True) -> str | None:
+    """Fetch *name* from the environment or an associated secret file."""
+    file_path = os.getenv(f"{name}_FILE")
+    if file_path:
+        return Path(file_path).read_text().strip()
+    value = os.getenv(name)
+    if value is None and required:
+        raise RuntimeError(f"{name} is required")
+    return value
+
+
+LOG_INDEXER_URL = load_env("LOG_INDEXER_URL")
 
 
 class LogIndexerHandler(logging.Handler):

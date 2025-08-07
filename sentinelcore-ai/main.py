@@ -1,12 +1,11 @@
 from fastapi import FastAPI, HTTPException
 import httpx
-import os
-from logging_config import setup_logging
+from logging_config import setup_logging, load_env
 
 app = FastAPI()
 logger = setup_logging()
 
-INCIDENT_MANAGER_URL = os.getenv("INCIDENT_MANAGER_URL", "http://incident_manager:8001")
+INCIDENT_MANAGER_URL = load_env("INCIDENT_MANAGER_URL")
 
 
 @app.post("/analyze")
