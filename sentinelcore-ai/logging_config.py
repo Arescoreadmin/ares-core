@@ -1,9 +1,27 @@
 import logging
 from datetime import datetime
 import os
+from pathlib import Path
 import requests
 
-LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
+
+def load_env(name: str, required: bool = True) -> str | None:
+    """Return the value of *name* from the environment or a mounted file.
+
+    A ``*_FILE`` variant is checked first to support Docker secrets.  If the
+    variable is marked as *required* and no value is found, ``RuntimeError`` is
+    raised.
+    """
+    file_path = os.getenv(f"{name}_FILE")
+    if file_path:
+        return Path(file_path).read_text().strip()
+    value = os.getenv(name)
+    if value is None and required:
+        raise RuntimeError(f"{name} is required")
+    return value
+
+
+LOG_INDEXER_URL = load_env("LOG_INDEXER_URL")
 
 
 class LogIndexerHandler(logging.Handler):

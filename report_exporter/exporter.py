@@ -1,19 +1,18 @@
-import os
 import csv
 from pathlib import Path
 
 import requests
 from fpdf import FPDF
 
-from .logging_config import setup_logging
+from .logging_config import setup_logging, load_env
 
-LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
 logger = setup_logging("report_exporter")
 
 
 def fetch_logs():
     logger.info("fetch_logs")
-    resp = requests.get(f"{LOG_INDEXER_URL}/export")
+    log_indexer_url = load_env("LOG_INDEXER_URL")
+    resp = requests.get(f"{log_indexer_url}/export")
     resp.raise_for_status()
     return resp.json()
 
@@ -105,13 +104,13 @@ def export() -> dict[str, str]:
     generate_pdf(logs, pdf_path)
 
     sig_paths = []
-    key = os.getenv("SIGNING_KEY")
+    key = load_env("SIGNING_KEY", required=False)
     if key:
         key_bytes = key.encode()
         sig_paths.append(sign_file(csv_path, key_bytes))
         sig_paths.append(sign_file(pdf_path, key_bytes))
 
-    bucket = os.getenv("EXPORT_BUCKET")
+    bucket = load_env("EXPORT_BUCKET", required=False)
     if bucket:
         upload_to_s3(csv_path, bucket, csv_path.name)
         upload_to_s3(pdf_path, bucket, pdf_path.name)
