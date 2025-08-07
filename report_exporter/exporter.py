@@ -18,17 +18,22 @@ def fetch_logs():
     return resp.json()
 
 
-def generate_csv(logs, filename):
-    """Write logs to a CSV file."""
+def generate_csv(logs, filename: Path | str) -> None:
+    """Serialize *logs* to ``filename`` in CSV format.
+
+    Each log is a mapping with ``message`` and ``level`` keys.  The writer uses
+    ``\n`` as the line terminator for consistent output across platforms.
+    """
     logger.info("generate_csv", extra={"file": str(filename)})
     with open(filename, "w", newline="") as f:
-        # Explicitly use Unix newlines so tests get predictable output
         writer = csv.DictWriter(
             f, fieldnames=["message", "level"], lineterminator="\n"
         )
         writer.writeheader()
         for log in logs:
-            writer.writerow({"message": log.get("message"), "level": log.get("level")})
+            writer.writerow(
+                {"message": log.get("message"), "level": log.get("level")}
+            )
 
 def generate_pdf(logs, filename):
     """Write logs to a PDF file."""
@@ -42,8 +47,12 @@ def generate_pdf(logs, filename):
     pdf.output(filename)
 
 
-def sign_file(path, key):
-    """Generate an HMAC-SHA256 signature for a file."""
+def sign_file(path: Path | str, key: bytes) -> Path:
+    """Return the path to a detached HMAC signature for ``path``.
+
+    The file's contents are read and signed using SHA-256.  The hexadecimal
+    digest is written to a sibling file with the ``.sig`` suffix.
+    """
     import hashlib
     import hmac
 
@@ -56,8 +65,18 @@ def sign_file(path, key):
     return sig_path
 
 
-def upload_to_s3(path, bucket, key, s3_client=None):
-    """Upload a file to S3 with basic object lock settings."""
+def upload_to_s3(
+    path: Path | str,
+    bucket: str,
+    key: str,
+    *,
+    s3_client=None,
+) -> None:
+    """Upload ``path`` to S3 with basic object-lock protection.
+
+    A custom ``s3_client`` can be injected for testing; otherwise a new client
+    is created with ``boto3``.
+    """
     if s3_client is None:
         import boto3
 
