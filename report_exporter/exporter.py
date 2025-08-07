@@ -1,5 +1,6 @@
 import os
 import csv
+import json
 from pathlib import Path
 
 import requests
@@ -90,7 +91,11 @@ def upload_to_s3(
 
 
 def export() -> dict[str, str]:
-    """Execute the report export workflow and return generated filenames."""
+    """Execute the report export workflow and return generated filenames.
+
+    A ``SIGNING_KEY`` environment variable is required. Both the CSV and PDF
+    artifacts are signed and a metadata file describing the export is written.
+    """
     logs = fetch_logs()
 
     # Determine next available version number
@@ -104,21 +109,34 @@ def export() -> dict[str, str]:
     generate_csv(logs, csv_path)
     generate_pdf(logs, pdf_path)
 
-    sig_paths = []
     key = os.getenv("SIGNING_KEY")
-    if key:
-        key_bytes = key.encode()
-        sig_paths.append(sign_file(csv_path, key_bytes))
-        sig_paths.append(sign_file(pdf_path, key_bytes))
+    if not key:
+        logger.error("missing_signing_key")
+        raise RuntimeError("SIGNING_KEY must be set")
+    key_bytes = key.encode()
+    csv_sig = sign_file(csv_path, key_bytes)
+    pdf_sig = sign_file(pdf_path, key_bytes)
+
+    metadata = {
+        "version": version,
+        "files": {
+            "csv": {"path": csv_path.name, "sig": csv_sig.name},
+            "pdf": {"path": pdf_path.name, "sig": pdf_sig.name},
+        },
+    }
+    meta_path = Path(f"logs_v{version}.metadata.json")
+    meta_path.write_text(json.dumps(metadata))
+    logger.info("write_metadata", extra={"file": str(meta_path)})
 
     bucket = os.getenv("EXPORT_BUCKET")
     if bucket:
         upload_to_s3(csv_path, bucket, csv_path.name)
         upload_to_s3(pdf_path, bucket, pdf_path.name)
-        for sig in sig_paths:
-            upload_to_s3(sig, bucket, sig.name)
+        upload_to_s3(csv_sig, bucket, csv_sig.name)
+        upload_to_s3(pdf_sig, bucket, pdf_sig.name)
+        upload_to_s3(meta_path, bucket, meta_path.name)
 
-    return {"csv": csv_path.name, "pdf": pdf_path.name}
+    return {"csv": csv_path.name, "pdf": pdf_path.name, "metadata": meta_path.name}
 
 
 
