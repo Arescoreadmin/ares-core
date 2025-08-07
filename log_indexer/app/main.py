@@ -1,11 +1,15 @@
 from fastapi import FastAPI, Response
-from pydantic import BaseModel
 from typing import List, Optional
 from datetime import datetime
 import logging
 import json
 from io import StringIO
 import csv
+import hashlib
+from pathlib import Path
+
+from .models import LogEntry
+from .dao import LogDAO
 
 app = FastAPI(title="Log Indexer", version="0.1.0")
 
@@ -27,13 +31,7 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-class LogEntry(BaseModel):
-    timestamp: datetime
-    level: str
-    service: str
-    message: str
-
-LOGS: List[LogEntry] = []
+dao = LogDAO(Path(__file__).resolve().parent / "logs.db")
 
 @app.get("/health")
 def health():
@@ -43,34 +41,50 @@ def health():
 @app.post("/log", status_code=201)
 def ingest_log(entry: LogEntry):
     """Receive a log entry and store it."""
-    LOGS.append(entry)
+    payload = f"{entry.timestamp.isoformat()}|{entry.level}|{entry.service}|{entry.message}"
+    entry.hash = hashlib.sha256(payload.encode()).hexdigest()
+    dao.add_log(entry)
     logger.info("log received", extra={"source": entry.service})
     return {"status": "ok"}
 
 @app.get("/query", response_model=List[LogEntry])
 def query_logs(level: Optional[str] = None, service: Optional[str] = None):
     """Query stored logs with optional filters."""
-    result = LOGS
-    if level:
-        result = [log for log in result if log.level == level]
-    if service:
-        result = [log for log in result if log.service == service]
-    return result
+    return dao.query_logs(level=level, service=service)
 
 @app.get("/export")
 def export_logs(format: str = "json"):
     """Export logs as JSON or CSV."""
+    logs = dao.all_logs()
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
+    export_dir = Path(__file__).resolve().parent / "export"
+    export_dir.mkdir(exist_ok=True)
+
     if format == "csv":
         output = StringIO()
         writer = csv.writer(output)
-        writer.writerow(["timestamp", "level", "service", "message"])
-        for log in LOGS:
+        writer.writerow(["timestamp", "level", "service", "message", "hash"])
+        for log in logs:
             writer.writerow([
                 log.timestamp.isoformat(),
                 log.level,
                 log.service,
                 log.message,
+                log.hash,
             ])
-        return Response(content=output.getvalue(), media_type="text/csv")
-    # Default JSON export
-    return [log.dict() for log in LOGS]
+        data = output.getvalue()
+        file_path = export_dir / f"logs_{timestamp}.csv"
+        file_path.write_text(data)
+        hash_value = hashlib.sha256(data.encode()).hexdigest()
+        meta = {"version": timestamp, "algorithm": "SHA256", "hash": hash_value}
+        (export_dir / f"logs_{timestamp}.metadata.json").write_text(json.dumps(meta))
+        return Response(content=data, media_type="text/csv", headers={"X-Export-Version": timestamp, "X-Integrity-Hash": hash_value})
+
+    logs_data = [log.dict() for log in logs]
+    data = json.dumps(logs_data)
+    file_path = export_dir / f"logs_{timestamp}.json"
+    file_path.write_text(data)
+    hash_value = hashlib.sha256(data.encode()).hexdigest()
+    meta = {"version": timestamp, "algorithm": "SHA256", "hash": hash_value}
+    (export_dir / f"logs_{timestamp}.metadata.json").write_text(json.dumps(meta))
+    return {"version": timestamp, "integrity": meta, "logs": logs_data}
