@@ -5,6 +5,17 @@ credentials are configured through environment variables. Each variable may
 also be provided via a file path using the `*_FILE` convention to support
 Docker secrets or other mounted configuration files.
 
+## Durability and Authentication
+
+- A dedicated `log-data` volume is mounted to the `log_indexer` service so
+  that audit logs survive container restarts. **Do not remove this volume**
+  unless migrating to a long-term store such as OpenSearch or ELK.
+- All services send logs to the indexer using bearer-token authentication.
+  Provide the token via the `LOG_INDEXER_TOKEN` environment variable or a
+  corresponding `LOG_INDEXER_TOKEN_FILE` secret file.
+- Exported CSV and PDF reports are accompanied by a `.sha256` file containing
+  the SHA-256 hash of the report to make tampering evident.
+
 ## Required environment variables
 
 The following variables must be set for the services to start. Provide the
@@ -35,6 +46,7 @@ SQLite should not be used in production.
 ## Security Notes
 
 The `infra/self_healing_supervisor.py` utility performs HTTP health checks on
-services. It no longer interacts directly with the host's `docker.sock`; any
-service restarts should be handled by the container orchestrator with the
-minimum permissions required.
+services and is intended only for demonstration or development use. Container
+restart policies are set to `on-failure`; production deployments should rely
+on orchestration platforms such as Kubernetes or Docker Swarm with native
+health checks for automatic restarts and recovery.

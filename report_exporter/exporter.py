@@ -47,7 +47,7 @@ def generate_pdf(logs, filename):
     logger.info("generate_pdf", extra={"file": str(filename)})
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=12)
+    pdf.set_font("Helvetica", size=12)
     for log in logs:
         line = f"{log['timestamp']} {log['level']} {log['service']} {log['message']}"
         pdf.multi_cell(0, 10, line)
