@@ -4,6 +4,8 @@ from pathlib import Path as _Path
 sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
 
 from report_exporter.exporter import generate_csv, sign_file, upload_to_s3
+from report_exporter.app import app
+from fastapi.testclient import TestClient
 
 
 def test_generate_csv(tmp_path):
@@ -37,3 +39,33 @@ def test_upload_to_s3(tmp_path):
     assert client.kwargs["Bucket"] == "bucket"
     assert client.kwargs["Key"] == "obj"
     assert "ObjectLockMode" in client.kwargs
+
+
+def test_health_endpoint():
+    client = TestClient(app)
+    resp = client.get("/health")
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}
+
+
+def test_export_endpoint(tmp_path, monkeypatch):
+    from report_exporter import exporter
+
+    monkeypatch.chdir(tmp_path)
+
+    def fake_fetch_logs():
+        return [
+            {
+                "timestamp": "2024-01-01T00:00:00Z",
+                "level": "INFO",
+                "service": "test",
+                "message": "hello",
+            }
+        ]
+
+    monkeypatch.setattr(exporter, "fetch_logs", fake_fetch_logs)
+    client = TestClient(app)
+    resp = client.get("/export")
+    assert resp.status_code == 200
+    assert (tmp_path / "logs_v1.csv").exists()
+    assert (tmp_path / "logs_v1.pdf").exists()
