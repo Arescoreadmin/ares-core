@@ -32,7 +32,9 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-dao = LogDAO(Path(__file__).resolve().parent / "logs.db")
+data_dir = Path(os.getenv("LOG_INDEXER_DATA_DIR", "/var/lib/log_indexer"))
+data_dir.mkdir(parents=True, exist_ok=True)
+dao = LogDAO(data_dir / "logs.db")
 API_TOKEN = os.getenv("LOG_INDEXER_TOKEN")
 
 @app.get("/health")
