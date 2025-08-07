@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
 from incident_manager.logging_config import setup_logging
+from typing import Dict, Any
 
 logger = setup_logging()
 app = FastAPI()
@@ -24,3 +25,10 @@ async def root():
 async def health(request: Request):
     logger.info("Health check request at %s", request.url.path)
     return {"status": "ok"}
+
+
+@app.post("/incident")
+async def create_incident(payload: Dict[str, Any]):
+    """Accept a new incident report and log the event."""
+    logger.info("incident_created", extra={"payload": payload})
+    return {"status": "received"}

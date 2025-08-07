@@ -52,6 +52,7 @@ def test_export_endpoint(tmp_path, monkeypatch):
     from report_exporter import exporter
 
     monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SIGNING_KEY", "secret")
 
     def fake_fetch_logs():
         return [
@@ -69,3 +70,20 @@ def test_export_endpoint(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert (tmp_path / "logs_v1.csv").exists()
     assert (tmp_path / "logs_v1.pdf").exists()
+    assert (tmp_path / "logs_v1.csv.sig").exists()
+    assert (tmp_path / "logs_v1.pdf.sig").exists()
+    assert (tmp_path / "logs_v1.metadata.json").exists()
+
+
+def test_export_requires_signing_key(tmp_path, monkeypatch):
+    from report_exporter import exporter
+
+    monkeypatch.chdir(tmp_path)
+
+    def fake_fetch_logs():
+        return []
+
+    monkeypatch.setattr(exporter, "fetch_logs", fake_fetch_logs)
+    client = TestClient(app, raise_server_exceptions=False)
+    resp = client.get("/export")
+    assert resp.status_code == 500
