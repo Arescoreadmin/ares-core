@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  user_service:
+    build: ./user_service
+  incident_manager:
+    build: ./incident_manager
+  sentinelred_ai:
+    build: ./sentinelred_ai
+  quarantine_engine:
+    build: ./quarantine_engine
+  notification_dispatcher:
+    build: ./notification_dispatcher
+  self_healing_supervisor:
+    build: ./self_healing_supervisor
+volumes:
+  db-data:
+    driver: local
