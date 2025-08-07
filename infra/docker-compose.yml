@@ -4,7 +4,7 @@ services:
   db:
     image: postgres:15
     container_name: infra-db-1
-    restart: always
+    restart: on-failure
     environment:
       POSTGRES_DB: arescore
       POSTGRES_USER_FILE: /run/secrets/postgres_user
@@ -27,7 +27,7 @@ services:
   incident_manager:
     build: ../incident_manager
     container_name: incident_manager
-    restart: always
+    restart: on-failure
     environment:
       PORT: 8001
       LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
@@ -45,7 +45,7 @@ services:
   sentinelcore-ai:
     build: ../sentinelcore-ai
     container_name: sentinelcore-ai
-    restart: always
+    restart: on-failure
     environment:
       INCIDENT_MANAGER_URL_FILE: /run/secrets/incident_manager_url
       LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
@@ -66,7 +66,7 @@ services:
   log_indexer:
     build: ../log_indexer
     container_name: log_indexer
-    restart: always
+    restart: on-failure
     ports:
       - "8002:8000"
     volumes:
@@ -83,7 +83,7 @@ services:
       context: ../report_exporter
       dockerfile: Dockerfile
     container_name: report_exporter
-    restart: always
+    restart: on-failure
     environment:
       LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
@@ -100,7 +100,7 @@ services:
   backend:
     build: ../backend
     container_name: backend
-    restart: always
+    restart: on-failure
     environment:
       LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
@@ -120,7 +120,7 @@ services:
   self_healing_supervisor:
     image: python:3.11-slim
     container_name: self_healing_supervisor
-    restart: always
+    restart: on-failure
     volumes:
       - ./self_healing_supervisor.py:/app/self_healing_supervisor.py
       - /var/run/docker.sock:/var/run/docker.sock
