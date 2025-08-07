@@ -24,3 +24,9 @@ async def root():
 async def health(request: Request):
     logger.info("Health check request at %s", request.url.path)
     return {"status": "ok"}
+
+
+@app.post("/incident")
+async def incident(payload: dict):
+    logger.info("incident_received")
+    return {"status": "ok"}
