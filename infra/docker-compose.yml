@@ -69,6 +69,8 @@ services:
     restart: always
     ports:
       - "8002:8000"
+    volumes:
+      - log-data:/var/lib/log_indexer
     networks:
       - sentinel_net
     healthcheck:
@@ -136,6 +138,9 @@ services:
 
 volumes:
   db-data:
+    driver: local
+  # Do not remove unless migrating to OpenSearch. All local/demo logs persist across container restarts.
+  log-data:
     driver: local
 
 secrets:

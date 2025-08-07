@@ -54,6 +54,18 @@ def generate_pdf(logs, filename):
     pdf.output(filename)
 
 
+def hash_file(path: Path | str) -> Path:
+    """Compute the SHA-256 hash of ``path`` and write it to ``<path>.sha256``."""
+    import hashlib
+
+    file_path = Path(path)
+    digest = hashlib.sha256(file_path.read_bytes()).hexdigest()
+    hash_path = file_path.with_suffix(file_path.suffix + ".sha256")
+    hash_path.write_text(digest)
+    logger.info("hash_file", extra={"file": str(file_path)})
+    return hash_path
+
+
 def sign_file(path: Path | str, key: bytes) -> Path:
     """Return the path to a detached HMAC signature for ``path``.
 
@@ -110,6 +122,8 @@ def export() -> dict[str, str]:
 
     generate_csv(logs, csv_path)
     generate_pdf(logs, pdf_path)
+    hash_file(csv_path)
+    hash_file(pdf_path)
 
     sig_paths = []
     key = load_env("SIGNING_KEY", required=False)
