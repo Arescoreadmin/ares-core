@@ -139,7 +139,7 @@ services:
 volumes:
   db-data:
     driver: local
-  # Do not remove unless migrating to OpenSearch. All local/demo logs persist across container restarts.
+  # Do not remove unless migrating to OpenSearch/ELK. All local/demo logs persist across container restarts.
   log-data:
     driver: local
 
