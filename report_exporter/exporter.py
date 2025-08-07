@@ -1,4 +1,7 @@
 import csv
+import json
+import zipfile
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -106,6 +109,23 @@ def upload_to_s3(
             Bucket=bucket, Key=key, Body=f.read(), ObjectLockMode="COMPLIANCE"
         )
     logger.info("upload_to_s3", extra={"bucket": bucket, "key": key})
+    
+
+def create_bundle(files: list[Path | str], version: int) -> Path:
+    """Create a zipped audit bundle containing ``files`` and metadata."""
+    bundle_path = Path(f"audit_bundle_v{version}.zip")
+    timestamp = datetime.utcnow().isoformat()
+    with zipfile.ZipFile(bundle_path, "w") as zf:
+        names = []
+        for f in files:
+            f = Path(f)
+            if f.exists():
+                zf.write(f, arcname=f.name)
+                names.append(f.name)
+        meta = {"created": timestamp, "files": names}
+        zf.writestr("metadata.json", json.dumps(meta))
+    logger.info("create_bundle", extra={"file": str(bundle_path)})
+    return bundle_path
 
 
 def export() -> dict[str, str]:
@@ -122,8 +142,8 @@ def export() -> dict[str, str]:
 
     generate_csv(logs, csv_path)
     generate_pdf(logs, pdf_path)
-    hash_file(csv_path)
-    hash_file(pdf_path)
+    csv_hash = hash_file(csv_path)
+    pdf_hash = hash_file(pdf_path)
 
     sig_paths = []
     key = load_env("SIGNING_KEY", required=False)
@@ -132,14 +152,26 @@ def export() -> dict[str, str]:
         sig_paths.append(sign_file(csv_path, key_bytes))
         sig_paths.append(sign_file(pdf_path, key_bytes))
 
+    bundle_files = [csv_path, pdf_path, csv_hash, pdf_hash] + sig_paths
+    bundle_path = create_bundle(bundle_files, version)
+    bundle_hash = hash_file(bundle_path)
+    if key:
+        sig_paths.append(sign_file(bundle_path, key_bytes))
+
     bucket = load_env("EXPORT_BUCKET", required=False)
     if bucket:
         upload_to_s3(csv_path, bucket, csv_path.name)
         upload_to_s3(pdf_path, bucket, pdf_path.name)
+        upload_to_s3(bundle_path, bucket, bundle_path.name)
+        upload_to_s3(bundle_hash, bucket, bundle_hash.name)
         for sig in sig_paths:
             upload_to_s3(sig, bucket, sig.name)
 
-    return {"csv": csv_path.name, "pdf": pdf_path.name}
+    return {
+        "csv": csv_path.name,
+        "pdf": pdf_path.name,
+        "bundle": bundle_path.name,
+    }
 
 
 
