@@ -25,7 +25,7 @@ _adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
 _session.mount("http://", _adapter)
 _session.mount("https://", _adapter)
 
-SERVICE_NAME = "incident_manager"
+SERVICE_NAME = "__SERVICE_NAME__"
 
 
 class LogIndexerHandler(logging.Handler):

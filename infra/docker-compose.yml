@@ -94,17 +94,20 @@ services:
       retries: 3
     secrets:
       - log_indexer_url
-
-  notification_dispatcher:
-    build: ../notification_dispatcher
-    container_name: notification_dispatcher
+  
+  backend:
+    build: ../backend
+    container_name: backend
     restart: always
     environment:
       LOG_INDEXER_URL_FILE: /run/secrets/log_indexer_url
     ports:
-      - "8004:8000"
+      - "8005:8000"
     networks:
       - sentinel_net
+      - db_net
+    depends_on:
+      - db
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 30s
@@ -120,14 +123,14 @@ services:
       - ./self_healing_supervisor.py:/app/self_healing_supervisor.py
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
-      SUPERVISE_TARGETS: "incident_manager=http://incident_manager:8001/health,sentinelcore-ai=http://sentinelcore-ai:8000/health,log_indexer=http://log_indexer:8000/health,report_exporter=http://report_exporter:8000/health,notification_dispatcher=http://notification_dispatcher:8000/health"
+      SUPERVISE_TARGETS: "incident_manager=http://incident_manager:8001/health,sentinelcore-ai=http://sentinelcore-ai:8000/health,log_indexer=http://log_indexer:8000/health,report_exporter=http://report_exporter:8000/health,backend=http://backend:8000/health"
     command: ["python", "/app/self_healing_supervisor.py"]
     depends_on:
       - incident_manager
       - sentinelcore-ai
       - log_indexer
       - report_exporter
-      - notification_dispatcher
+      - backend
     networks:
       - sentinel_net
 

@@ -4,6 +4,8 @@ from typing import List, Tuple
 
 import docker
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
 
 def parse_targets(raw: str) -> List[Tuple[str, str]]:
@@ -28,10 +30,15 @@ def main() -> None:
 
     client = docker.DockerClient(base_url='unix://var/run/docker.sock')
 
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
     while True:
         for container_name, url in targets:
             try:
-                response = requests.get(url, timeout=5)
+                response = session.get(url, timeout=5)
                 healthy = response.status_code == 200
             except Exception as exc:
                 print(f"Health check for {container_name} failed: {exc}")

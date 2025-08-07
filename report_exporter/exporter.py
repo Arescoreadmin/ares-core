@@ -2,17 +2,25 @@ import csv
 from pathlib import Path
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 from fpdf import FPDF
 
 from .logging_config import setup_logging, load_env
 
-logger = setup_logging("report_exporter")
+logger = setup_logging()
+
+
+_session = requests.Session()
+_adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
+_session.mount("http://", _adapter)
+_session.mount("https://", _adapter)
 
 
 def fetch_logs():
     logger.info("fetch_logs")
     log_indexer_url = load_env("LOG_INDEXER_URL")
-    resp = requests.get(f"{log_indexer_url}/export")
+    resp = _session.get(f"{log_indexer_url}/export", timeout=5)
     resp.raise_for_status()
     return resp.json()
 
