@@ -2,8 +2,13 @@ import os
 import time
 from typing import List, Tuple
 
-import docker
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
+from logging_config import setup_logging
+
+
+logger = setup_logging()
 
 
 def parse_targets(raw: str) -> List[Tuple[str, str]]:
@@ -23,26 +28,25 @@ def main() -> None:
     check_interval = int(os.getenv('CHECK_INTERVAL', '30'))
     targets = parse_targets(targets_env)
     if not targets:
-        print('No targets configured for supervision', flush=True)
+        logger.info('No targets configured for supervision')
         return
 
-    client = docker.DockerClient(base_url='unix://var/run/docker.sock')
+    session = requests.Session()
+    adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
 
     while True:
         for container_name, url in targets:
             try:
-                response = requests.get(url, timeout=5)
+                response = session.get(url, timeout=5)
                 healthy = response.status_code == 200
             except Exception as exc:
-                print(f"Health check for {container_name} failed: {exc}")
+                logger.error("health_check_exception", extra={"container": container_name, "error": str(exc)})
                 healthy = False
 
             if not healthy:
-                try:
-                    print(f'Restarting container {container_name}', flush=True)
-                    client.containers.get(container_name).restart()
-                except Exception as exc:
-                    print(f'Failed to restart {container_name}: {exc}', flush=True)
+                logger.warning("health_check_failed", extra={"container": container_name})
         time.sleep(check_interval)
 
 

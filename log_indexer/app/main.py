@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Response
+import os
+from fastapi import FastAPI, Response, Header, HTTPException
 from typing import List, Optional
 from datetime import datetime
 import logging
@@ -31,7 +32,10 @@ logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 logger.propagate = False
 
-dao = LogDAO(Path(__file__).resolve().parent / "logs.db")
+data_dir = Path(os.getenv("LOG_INDEXER_DATA_DIR", "/var/lib/log_indexer"))
+data_dir.mkdir(parents=True, exist_ok=True)
+dao = LogDAO(data_dir / "logs.db")
+API_TOKEN = os.getenv("LOG_INDEXER_TOKEN")
 
 @app.get("/health")
 def health():
@@ -39,8 +43,15 @@ def health():
     return {"status": "ok", "service": "log_indexer", "time": datetime.utcnow().isoformat()}
 
 @app.post("/log", status_code=201)
-def ingest_log(entry: LogEntry):
-    """Receive a log entry and store it."""
+def ingest_log(entry: LogEntry, authorization: str | None = Header(default=None)):
+    """Receive a log entry and store it.
+
+    If ``LOG_INDEXER_TOKEN`` is set, the request must include an
+    ``Authorization`` header with ``Bearer <token>``.
+    """
+    if API_TOKEN:
+        if authorization != f"Bearer {API_TOKEN}":
+            raise HTTPException(status_code=401, detail="Unauthorized")
     payload = f"{entry.timestamp.isoformat()}|{entry.level}|{entry.service}|{entry.message}"
     entry.hash = hashlib.sha256(payload.encode()).hexdigest()
     dao.add_log(entry)

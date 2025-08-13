@@ -1,7 +1,10 @@
+import os
 import sys
 from pathlib import Path as _Path
 
 sys.path.insert(0, str(_Path(__file__).resolve().parents[1]))
+
+os.environ.setdefault("LOG_INDEXER_URL", "http://log-indexer")
 
 from report_exporter.exporter import generate_csv, sign_file, upload_to_s3
 from report_exporter.app import app
@@ -67,5 +70,28 @@ def test_export_endpoint(tmp_path, monkeypatch):
     client = TestClient(app)
     resp = client.get("/export")
     assert resp.status_code == 200
+    data = resp.json()
+    bundle_name = data["bundle"]
+    assert bundle_name.startswith("audit_bundle_") and bundle_name.endswith(".zip")
+    bundle_path = tmp_path / bundle_name
     assert (tmp_path / "logs_v1.csv").exists()
     assert (tmp_path / "logs_v1.pdf").exists()
+    assert bundle_path.exists()
+    import hashlib, json, zipfile
+    csv_hash = (tmp_path / "logs_v1.csv.sha256").read_text()
+    pdf_hash = (tmp_path / "logs_v1.pdf.sha256").read_text()
+    bundle_hash = (tmp_path / f"{bundle_name}.sha256").read_text()
+    assert csv_hash == hashlib.sha256((tmp_path / "logs_v1.csv").read_bytes()).hexdigest()
+    assert pdf_hash == hashlib.sha256((tmp_path / "logs_v1.pdf").read_bytes()).hexdigest()
+    assert bundle_hash == hashlib.sha256(bundle_path.read_bytes()).hexdigest()
+    with zipfile.ZipFile(bundle_path) as zf:
+        names = set(zf.namelist())
+        meta = json.loads(zf.read("metadata.json"))
+    assert {"logs_v1.csv", "logs_v1.csv.sha256", "logs_v1.pdf", "logs_v1.pdf.sha256"}.issubset(names)
+    assert set(meta["files"]) == {
+        "logs_v1.csv",
+        "logs_v1.pdf",
+        "logs_v1.csv.sha256",
+        "logs_v1.pdf.sha256",
+    }
+    assert "created" in meta

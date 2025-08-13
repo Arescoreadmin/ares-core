@@ -26,7 +26,7 @@ _adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
 _session.mount("http://", _adapter)
 _session.mount("https://", _adapter)
 
-SERVICE_NAME = "backend"
+SERVICE_NAME = "self_healing_supervisor"
 
 
 class LogIndexerHandler(logging.Handler):
@@ -58,3 +58,4 @@ def setup_logging() -> logging.Logger:
         logger.setLevel(logging.INFO)
         logger.addHandler(LogIndexerHandler())
     return logger
+

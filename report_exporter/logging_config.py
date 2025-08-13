@@ -1,33 +1,60 @@
 import logging
 from datetime import datetime
 import os
+from pathlib import Path
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util import Retry
 
-LOG_INDEXER_URL = os.getenv("LOG_INDEXER_URL", "http://localhost:8001")
+
+def load_env(name: str, required: bool = True) -> str | None:
+    """Fetch *name* from the environment or an associated secret file."""
+    file_path = os.getenv(f"{name}_FILE")
+    if file_path:
+        return Path(file_path).read_text().strip()
+    value = os.getenv(name)
+    if value is None and required:
+        raise RuntimeError(f"{name} is required")
+    return value
+
+
+LOG_INDEXER_URL = load_env("LOG_INDEXER_URL", required=False)
+LOG_INDEXER_TOKEN = load_env("LOG_INDEXER_TOKEN", required=False)
+
+_session = requests.Session()
+_adapter = HTTPAdapter(max_retries=Retry(total=3, backoff_factor=0.5))
+_session.mount("http://", _adapter)
+_session.mount("https://", _adapter)
+
+SERVICE_NAME = "report_exporter"
 
 
 class LogIndexerHandler(logging.Handler):
-    def __init__(self, service_name: str):
-        super().__init__()
-        self.service_name = service_name
-
     def emit(self, record: logging.LogRecord) -> None:
+        if not LOG_INDEXER_URL:
+            return
         log_entry = {
             "timestamp": datetime.utcnow().isoformat(),
             "level": record.levelname,
-            "service": self.service_name,
+            "service": SERVICE_NAME,
             "message": record.getMessage(),
         }
         try:
-            requests.post(f"{LOG_INDEXER_URL}/log", json=log_entry, timeout=2)
+            headers = {}
+            if LOG_INDEXER_TOKEN:
+                headers["Authorization"] = f"Bearer {LOG_INDEXER_TOKEN}"
+            _session.post(
+                f"{LOG_INDEXER_URL}/log", json=log_entry, timeout=5, headers=headers
+            )
         except Exception:
+            # Avoid crashing on logging errors
             pass
 
 
-def setup_logging(service_name: str) -> logging.Logger:
-    logger = logging.getLogger(service_name)
+def setup_logging() -> logging.Logger:
+    """Configure and return a logger for the service."""
+    logger = logging.getLogger(SERVICE_NAME)
     if not logger.handlers:
         logger.setLevel(logging.INFO)
-        handler = LogIndexerHandler(service_name)
-        logger.addHandler(handler)
+        logger.addHandler(LogIndexerHandler())
     return logger
