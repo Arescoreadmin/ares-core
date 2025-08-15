@@ -6,4 +6,3 @@ COPY . .
 RUN adduser --disabled-password appuser && chown -R appuser /app
 USER appuser
 CMD ["uvicorn", "report_exporter.app:app", "--host", "0.0.0.0", "--port", "8000"]
-

@@ -172,6 +172,3 @@ def export() -> dict[str, str]:
         "pdf": pdf_path.name,
         "bundle": bundle_path.name,
     }
-
-
-

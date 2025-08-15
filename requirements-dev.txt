@@ -1,0 +1,1 @@
+pytest==8.4.1boto3==1.35.0cryptography==42.0.8

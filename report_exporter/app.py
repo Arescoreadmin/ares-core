@@ -13,4 +13,3 @@ def health():
 @app.get("/export")
 def export_endpoint():
     return export()
-

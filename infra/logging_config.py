@@ -58,4 +58,3 @@ def setup_logging() -> logging.Logger:
         logger.setLevel(logging.INFO)
         logger.addHandler(LogIndexerHandler())
     return logger
-
