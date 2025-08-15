@@ -48,3 +48,6 @@ alembic/versions/__pycache__/
 logs/
 
 backend/venv/
+backend/sentinelcore/config/quarantine/
+backend/sentinelcore/reports/
+infra/db-data/

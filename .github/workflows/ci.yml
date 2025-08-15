@@ -4,14 +4,17 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch: {}
+
 jobs:
   smoke:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Show repo/commit
-        run: echo "Repo: ${{ github.repository }} @ ${{ github.sha }}"
-      - name: Python version
-        run: python --version
-      - name: Node version
-        run: node --version
+      - name: Show context
+        run: |
+          echo "Repo: ${{ github.repository }} @ ${{ github.sha }}"
+          echo "Runner: $RUNNER_OS"
+      - name: Tooling
+        run: |
+          python --version
+          node --version
