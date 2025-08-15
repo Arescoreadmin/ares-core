@@ -7,14 +7,22 @@ on:
   workflow_dispatch: {}
 
 jobs:
-  smoke:
+  test:
     runs-on: ubuntu-latest
     steps:
-      - name: Show context
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
         run: |
-          echo "Repo: ${{ github.repository }} @ ${{ github.sha }}"
-          echo "Runner: $RUNNER_OS"
-      - name: Tooling
+          python -m pip install --upgrade pip
+          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Run tests
         run: |
-          python --version
-          node --version
+          pytest -q
